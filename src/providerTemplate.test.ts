@@ -5,6 +5,8 @@ describe("defaultProviderEnv", () => {
   it("includes every Claude-compatible provider field", () => {
     expect(Object.keys(defaultProviderEnv)).toEqual([
       "CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS",
+      "CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC",
+      "CLAUDE_CODE_ATTRIBUTION_HEADER",
       "ANTHROPIC_BASE_URL",
       "ANTHROPIC_AUTH_TOKEN",
       "ANTHROPIC_MODEL",
@@ -15,5 +17,7 @@ describe("defaultProviderEnv", () => {
       "CLAUDE_CODE_SUBAGENT_MODEL",
       "CLAUDE_CODE_EFFORT_LEVEL",
     ]);
+    expect(defaultProviderEnv.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC).toBe("1");
+    expect(defaultProviderEnv.CLAUDE_CODE_ATTRIBUTION_HEADER).toBe("0");
   });
 });

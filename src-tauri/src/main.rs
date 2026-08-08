@@ -45,6 +45,11 @@ fn switch_provider(state: tauri::State<AppState>, id: String) -> Result<(), Stri
 }
 
 #[tauri::command]
+async fn test_connection(input: claude_env_switcher_lib::connection_test::ConnectionTestInput) -> Result<claude_env_switcher_lib::connection_test::ConnectionTestResult, String> {
+    claude_env_switcher_lib::connection_test::test(input).await
+}
+
+#[tauri::command]
 fn backups_path(state: tauri::State<AppState>) -> String { state.backups_path.display().to_string() }
 
 #[tauri::command]
@@ -71,7 +76,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, switch_provider, backups_path, open_backups_directory])
+        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, switch_provider, test_connection, backups_path, open_backups_directory])
         .run(tauri::generate_context!())
         .expect("启动 Claude Env Switcher 失败");
 }

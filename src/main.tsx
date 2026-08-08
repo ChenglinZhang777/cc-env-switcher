@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { invoke } from "@tauri-apps/api/core";
 import { defaultProviderEnv } from "./providerTemplate";
+import { missingConnectionFields, presentConnectionResult, type ConnectionResultKind } from "./connectionTest";
 import { checkForUpdate, installUpdate, presentUpdateResult, type AvailableUpdate } from "./update";
 import "./styles.css";
 
@@ -16,6 +17,8 @@ function App() {
   const [selected, setSelected] = useState<Provider | null>(null);
   const [message, setMessage] = useState("");
   const [showToken, setShowToken] = useState(false);
+  const [testingConnection, setTestingConnection] = useState(false);
+  const [connectionMessage, setConnectionMessage] = useState("");
   const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdate | null>(null);
   const [updateMessage, setUpdateMessage] = useState("");
   const [installing, setInstalling] = useState(false);
@@ -45,6 +48,18 @@ function App() {
     if (!selected?.name.trim()) return setMessage("请先填写供应商名称。");
     try { await invoke("save_provider", { profile: selected }); await load(); setMessage("方案已保存。密钥以明文保存在本机应用配置中。"); }
     catch (error) { setMessage(`保存失败：${String(error)}`); }
+  };
+  const testConnection = async () => {
+    if (!selected) return;
+    const missing = missingConnectionFields(selected.env);
+    if (missing.length) { setConnectionMessage(`请先填写：${missing.join("、")}。`); return; }
+    setTestingConnection(true); setConnectionMessage("");
+    try {
+      const result = await invoke<{ kind: ConnectionResultKind }>("test_connection", { input: { baseUrl: selected.env.ANTHROPIC_BASE_URL, authToken: selected.env.ANTHROPIC_AUTH_TOKEN, model: selected.env.ANTHROPIC_MODEL } });
+      setConnectionMessage(presentConnectionResult(result.kind));
+    } catch {
+      setConnectionMessage(presentConnectionResult("network"));
+    } finally { setTestingConnection(false); }
   };
   const switchTo = async (provider: Provider) => {
     try { await invoke("switch_provider", { id: provider.id }); setMessage(`已切换到 ${provider.name}；原 settings.json 已完整备份。`); }
@@ -91,9 +106,10 @@ function App() {
             <label className="field full"><span>方案名称</span><input value={selected.name} placeholder="例如：DeepSeek V4 Flash" onChange={event => setSelected({ ...selected, name: event.target.value })} /></label>
             <div className="field-grid"><label className="field"><span>API 地址</span><input value={selected.env.ANTHROPIC_BASE_URL} placeholder="https://api.example.com/anthropic" onChange={event => setEnv("ANTHROPIC_BASE_URL", event.target.value)} /></label><label className="field"><span>主模型</span><input value={selected.env.ANTHROPIC_MODEL} placeholder="deepseek-v4-flash[1m]" onChange={event => setEnv("ANTHROPIC_MODEL", event.target.value)} /></label></div>
             <label className="field token-field"><span>API Key</span><div><input type={showToken ? "text" : "password"} value={selected.env.ANTHROPIC_AUTH_TOKEN} placeholder="sk-…" onChange={event => setEnv("ANTHROPIC_AUTH_TOKEN", event.target.value)} /><button onClick={() => setShowToken(!showToken)}>{showToken ? "隐藏" : "显示"}</button></div></label>
+            <div className="connection-test-row"><button className="secondary" disabled={testingConnection} onClick={() => void testConnection()}>{testingConnection ? "正在测试…" : "测试连接"}</button>{connectionMessage && <span className="connection-result">{connectionMessage}</span>}</div>
           </section>
           <section className="form-card"><div className="section-title"><div><h3>模型映射</h3><p>默认让所有 Claude 模型角色使用同一主模型；可以单独覆写。</p></div><button className="secondary" onClick={syncModels}>同步主模型</button></div><div className="model-grid">{modelKeys.map(key => <label className="field" key={key}><span>{labels[key]}</span><input value={selected.env[key]} placeholder="跟随主模型" onChange={event => setEnv(key, event.target.value)} /></label>)}</div></section>
-          <section className="form-card compact"><div className="section-title"><div><h3>Agent 行为</h3><p>针对 Claude Code 的运行设置。</p></div></div><div className="field-grid"><label className="field"><span>Subagent 模型</span><input value={selected.env.CLAUDE_CODE_SUBAGENT_MODEL} placeholder="跟随主模型" onChange={event => setEnv("CLAUDE_CODE_SUBAGENT_MODEL", event.target.value)} /></label><label className="field"><span>工作强度</span><select value={selected.env.CLAUDE_CODE_EFFORT_LEVEL} onChange={event => setEnv("CLAUDE_CODE_EFFORT_LEVEL", event.target.value)}><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="max">最高</option></select></label></div><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1"} onChange={event => setEnv("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", event.target.checked ? "1" : "0")} /><span><strong>启用实验性 Agent Teams</strong><small>写入 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</small></span></label></section>
+          <section className="form-card compact"><div className="section-title"><div><h3>Agent 行为</h3><p>针对 Claude Code 的运行设置。</p></div></div><div className="field-grid"><label className="field"><span>Subagent 模型</span><input value={selected.env.CLAUDE_CODE_SUBAGENT_MODEL} placeholder="跟随主模型" onChange={event => setEnv("CLAUDE_CODE_SUBAGENT_MODEL", event.target.value)} /></label><label className="field"><span>工作强度</span><select value={selected.env.CLAUDE_CODE_EFFORT_LEVEL} onChange={event => setEnv("CLAUDE_CODE_EFFORT_LEVEL", event.target.value)}><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="max">最高</option></select></label></div><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1"} onChange={event => setEnv("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", event.target.checked ? "1" : "0")} /><span><strong>启用实验性 Agent Teams</strong><small>写入 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</small></span></label><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1"} onChange={event => setEnv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", event.target.checked ? "1" : "0")} /><span><strong>关闭非必要网络流量</strong><small>写入 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</small></span></label><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_ATTRIBUTION_HEADER === "0"} onChange={event => setEnv("CLAUDE_CODE_ATTRIBUTION_HEADER", event.target.checked ? "0" : "1")} /><span><strong>关闭 Attribution Header</strong><small>写入 CLAUDE_CODE_ATTRIBUTION_HEADER=0</small></span></label></section>
           <footer className="editor-footer"><button className="danger" onClick={() => void remove()}>删除方案</button><div><button className="secondary" onClick={() => void importCurrent()}>从当前配置导入</button><button className="primary" onClick={() => void save()}>保存方案</button></div></footer>
         </> : <div className="empty-editor"><h2>先选择一个供应商方案</h2><p>可以新建方案，或从当前 settings.json 导入现有 env。</p><button className="primary" onClick={() => void importCurrent()}>从当前配置导入</button></div>}
       </article>
@@ -103,4 +119,3 @@ function App() {
   </main>;
 }
 createRoot(document.getElementById("root")!).render(<App />);
-
