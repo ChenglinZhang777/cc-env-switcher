@@ -55,6 +55,48 @@ pub fn parse(text: &str) -> Result<Vec<PackagedProfile>, String> {
     Ok(package.profiles)
 }
 
+pub struct MergeOutcome {
+    pub profiles: Vec<ProviderProfile>,
+    pub imported: usize,
+    pub renamed: usize,
+}
+
+/// 追加导入：已有方案一个字节都不动，导入项重新生成 ID 并在撞名时加后缀。
+pub fn merge(existing: &[ProviderProfile], incoming: Vec<PackagedProfile>) -> MergeOutcome {
+    let mut profiles = existing.to_vec();
+    let mut renamed = 0;
+    let imported = incoming.len();
+
+    for item in incoming {
+        // 比较对象含已处理过的导入项，因此批内后缀连续递增而不重复。
+        let taken: Vec<&str> = profiles.iter().map(|profile| profile.name.as_str()).collect();
+        let name = if item.name.is_empty() || !taken.contains(&item.name.as_str()) {
+            item.name
+        } else {
+            renamed += 1;
+            available_name(&item.name, &taken)
+        };
+        profiles.push(ProviderProfile { id: crate::providers::new_id(), name, env: item.env });
+    }
+
+    MergeOutcome { profiles, imported, renamed }
+}
+
+/// 撞名时找一个没被占用的名字：先试「X（导入）」，再试「X（导入 2）」依次递增。
+fn available_name(base: &str, taken: &[&str]) -> String {
+    let first = format!("{base}（导入）");
+    if !taken.contains(&first.as_str()) {
+        return first;
+    }
+    for suffix in 2.. {
+        let candidate = format!("{base}（导入 {suffix}）");
+        if !taken.contains(&candidate.as_str()) {
+            return candidate;
+        }
+    }
+    unreachable!()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,6 +160,69 @@ mod tests {
     fn parse_accepts_empty_profile_list() {
         let text = r#"{"kind":"cc-env-switcher-profiles","version":1,"profiles":[]}"#;
         assert_eq!(parse(text).unwrap().len(), 0, "空列表是合法包，应与损坏区分");
+    }
+
+    fn packaged(name: &str) -> PackagedProfile {
+        PackagedProfile { name: name.into(), env: BTreeMap::new() }
+    }
+
+    #[test]
+    fn merge_appends_without_touching_existing() {
+        let existing = vec![sample()];
+        let outcome = merge(&existing, vec![packaged("新方案")]);
+        assert_eq!(outcome.profiles.len(), 2);
+        assert_eq!(outcome.profiles[0], sample(), "已有方案不得被修改");
+        assert_eq!(outcome.profiles[1].name, "新方案");
+        assert_eq!(outcome.imported, 1);
+        assert_eq!(outcome.renamed, 0);
+    }
+
+    #[test]
+    fn merge_regenerates_ids_so_they_never_collide() {
+        let existing = vec![sample()];
+        let outcome = merge(&existing, vec![packaged("A"), packaged("B")]);
+        let ids: Vec<&str> = outcome.profiles.iter().map(|p| p.id.as_str()).collect();
+        assert_eq!(ids[0], "local-id-1");
+        assert_ne!(ids[1], ids[2], "同批导入的 ID 必须互不相同");
+        assert!(!ids[1].is_empty() && !ids[2].is_empty());
+    }
+
+    #[test]
+    fn importing_same_package_twice_duplicates_instead_of_overwriting() {
+        let package = vec![packaged("X")];
+        let first = merge(&[], package.clone());
+        let second = merge(&first.profiles, package);
+        assert_eq!(second.profiles.len(), 2, "同一配置包导入两次应得到两份");
+        assert_eq!(second.profiles[0].name, "X", "第一次导入的方案仍在");
+        assert_eq!(second.profiles[1].name, "X（导入）");
+        assert_ne!(second.profiles[0].id, second.profiles[1].id);
+    }
+
+    #[test]
+    fn merge_numbers_repeated_name_collisions_in_order() {
+        let existing = vec![
+            ProviderProfile { id: "1".into(), name: "X".into(), env: BTreeMap::new() },
+            ProviderProfile { id: "2".into(), name: "X（导入）".into(), env: BTreeMap::new() },
+        ];
+        let outcome = merge(&existing, vec![packaged("X"), packaged("X")]);
+        assert_eq!(outcome.profiles[2].name, "X（导入 2）");
+        assert_eq!(outcome.profiles[3].name, "X（导入 3）");
+        assert_eq!(outcome.renamed, 2);
+    }
+
+    #[test]
+    fn merge_treats_different_case_as_different_names() {
+        let existing = vec![ProviderProfile { id: "1".into(), name: "x".into(), env: BTreeMap::new() }];
+        let outcome = merge(&existing, vec![packaged("X")]);
+        assert_eq!(outcome.profiles[1].name, "X", "大小写不同视为不同名，不加后缀");
+        assert_eq!(outcome.renamed, 0);
+    }
+
+    #[test]
+    fn merge_keeps_blank_names_as_is() {
+        let outcome = merge(&[], vec![packaged("")]);
+        assert_eq!(outcome.profiles[0].name, "", "空名称照原样导入");
+        assert_eq!(outcome.renamed, 0);
     }
 }
 

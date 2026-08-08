@@ -39,7 +39,7 @@ pub fn native_profile() -> ProviderProfile {
 }
 
 /// 生成方案 ID。不引入 uuid 依赖，用时间戳加计数器保证同一进程内不重复。
-fn new_id() -> String {
+pub(crate) fn new_id() -> String {
     use std::sync::atomic::{AtomicU64, Ordering};
     static COUNTER: AtomicU64 = AtomicU64::new(0);
     let nanos = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).map(|value| value.as_nanos()).unwrap_or(0);
