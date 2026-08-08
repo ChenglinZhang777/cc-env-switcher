@@ -73,6 +73,15 @@ fn import_current_env(state: tauri::State<AppState>) -> Result<BTreeMap<String, 
     serde_json::from_value(document.get("env").cloned().unwrap_or_else(|| serde_json::json!({}))).map_err(|_| "env 必须是字符串键值对".to_string())
 }
 
+/// 读取当前生效的环境变量。配置文件缺失或损坏时返回 None，让界面照常渲染。
+#[tauri::command]
+fn read_active_env(state: tauri::State<AppState>) -> Result<Option<BTreeMap<String, String>>, String> {
+    let Ok(bytes) = std::fs::read(&state.settings_path) else { return Ok(None) };
+    let Ok(document) = serde_json::from_slice::<serde_json::Value>(&bytes) else { return Ok(None) };
+    let Some(env) = document.get("env") else { return Ok(Some(BTreeMap::new())) };
+    Ok(serde_json::from_value(env.clone()).ok())
+}
+
 #[tauri::command]
 fn switch_provider(state: tauri::State<AppState>, id: String) -> Result<(), String> {
     let profile = providers::load_profiles(&state.providers_path)?.into_iter().find(|profile| profile.id == id).ok_or("未找到该供应商")?;
@@ -111,7 +120,7 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, switch_provider, test_connection, backups_path, open_backups_directory])
+        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, read_active_env, switch_provider, test_connection, backups_path, open_backups_directory])
         .run(tauri::generate_context!())
         .expect("启动 CC Env Switcher 失败");
 }
