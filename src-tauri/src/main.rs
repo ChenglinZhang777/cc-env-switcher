@@ -69,6 +69,8 @@ fn main() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_process::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, switch_provider, backups_path, open_backups_directory])
         .run(tauri::generate_context!())
         .expect("启动 Claude Env Switcher 失败");
