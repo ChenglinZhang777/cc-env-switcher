@@ -109,6 +109,76 @@ fn open_backups_directory(app: tauri::AppHandle, state: tauri::State<AppState>) 
     app.opener().open_path(state.backups_path.display().to_string(), None::<&str>).map_err(|error| error.to_string())
 }
 
+use cc_env_switcher_lib::profile_package;
+use tauri_plugin_clipboard_manager::ClipboardExt;
+use tauri_plugin_dialog::{DialogExt, MessageDialogButtons};
+
+#[derive(serde::Serialize)]
+struct ImportSummary { imported: usize, renamed: usize }
+
+/// 导出前的明文提醒。用户点取消返回 false，调用方须中止导出。
+fn confirm_plaintext_export(app: &tauri::AppHandle) -> bool {
+    app.dialog()
+        .message("导出的配置包含 API Key 明文。文件或剪贴板内容离开本机后，取得它的人即可使用你的全部 Key。")
+        .title("确认导出？")
+        .buttons(MessageDialogButtons::OkCancelCustom("继续导出".into(), "取消".into()))
+        .blocking_show()
+}
+
+#[tauri::command]
+async fn export_profiles_to_file(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let text = profile_package::pack(&providers::load_profiles(&state.providers_path)?)?;
+    if !confirm_plaintext_export(&app) { return Ok(false); }
+    let stamp = chrono::Local::now().format("%Y%m%d");
+    let Some(target) = app.dialog().file()
+        .set_title("导出全部方案")
+        .set_file_name(format!("cc-env-switcher-profiles-{stamp}.json"))
+        .add_filter("JSON", &["json"])
+        .blocking_save_file()
+    else { return Ok(false) };
+    let path = target.into_path().map_err(|error| error.to_string())?;
+    fs::write(path, text).map_err(|error| format!("写入文件失败：{error}"))?;
+    Ok(true)
+}
+
+#[tauri::command]
+async fn export_profiles_to_clipboard(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<bool, String> {
+    let text = profile_package::pack(&providers::load_profiles(&state.providers_path)?)?;
+    if !confirm_plaintext_export(&app) { return Ok(false); }
+    app.clipboard().write_text(text).map_err(|error| format!("写入剪贴板失败：{error}"))?;
+    Ok(true)
+}
+
+/// 解析后合并落盘。抽出来是因为文件和剪贴板两条路只有取文本的方式不同。
+fn apply_import(state: &AppState, text: &str) -> Result<ImportSummary, String> {
+    let incoming = profile_package::parse(text)?;
+    if incoming.is_empty() {
+        return Err("这份配置里没有方案；请确认原机器上已保存方案后重新导出。".to_string());
+    }
+    let outcome = profile_package::merge(&providers::load_profiles(&state.providers_path)?, incoming);
+    providers::save_profiles(&state.providers_path, &outcome.profiles)?;
+    Ok(ImportSummary { imported: outcome.imported, renamed: outcome.renamed })
+}
+
+#[tauri::command]
+async fn import_profiles_from_file(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<Option<ImportSummary>, String> {
+    let Some(source) = app.dialog().file()
+        .set_title("导入方案")
+        .add_filter("JSON", &["json"])
+        .blocking_pick_file()
+    else { return Ok(None) };
+    let path = source.into_path().map_err(|error| error.to_string())?;
+    let text = fs::read_to_string(path).map_err(|error| format!("读取文件失败：{error}"))?;
+    apply_import(&state, &text).map(Some)
+}
+
+#[tauri::command]
+async fn import_profiles_from_clipboard(app: tauri::AppHandle, state: tauri::State<'_, AppState>) -> Result<ImportSummary, String> {
+    let text = app.clipboard().read_text()
+        .map_err(|_| "剪贴板里没有可读文本；请先在原机器上点导出到剪贴板。".to_string())?;
+    apply_import(&state, &text)
+}
+
 fn main() {
     tauri::Builder::default()
         .setup(|app| {
@@ -125,9 +195,10 @@ fn main() {
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, read_active_env, switch_provider, test_connection, backups_path, open_backups_directory])
+        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, read_active_env, switch_provider, test_connection, backups_path, open_backups_directory, export_profiles_to_file, export_profiles_to_clipboard, import_profiles_from_file, import_profiles_from_clipboard])
         .run(tauri::generate_context!())
         .expect("启动 CC Env Switcher 失败");
 }
