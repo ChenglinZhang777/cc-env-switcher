@@ -107,11 +107,51 @@ function App() {
     try { await installUpdate(availableUpdate.update, () => setUpdateMessage("正在下载并验证更新…")); }
     catch { setUpdateMessage("更新安装失败；当前版本仍可正常使用。"); setInstalling(false); }
   };
+  const exportToFile = async () => {
+    try {
+      const exported = await invoke<boolean>("export_profiles_to_file");
+      if (exported) notify(successFeedback("配置已导出到文件。"));
+    } catch (error) { notify(errorFeedback(`导出失败：${String(error)}`)); }
+  };
+  const exportToClipboard = async () => {
+    try {
+      const exported = await invoke<boolean>("export_profiles_to_clipboard");
+      if (exported) notify(successFeedback("配置已复制到剪贴板。"));
+    } catch (error) { notify(errorFeedback(`导出失败：${String(error)}`)); }
+  };
+  const importFromFile = async () => {
+    try {
+      const result = await invoke<{ imported: number; renamed: number } | null>("import_profiles_from_file");
+      if (result) {
+        await load();
+        notify(successFeedback(`已导入 ${result.imported} 个方案${result.renamed > 0 ? `（${result.renamed} 个重名方案已自动改名）` : ""}。`));
+      }
+    } catch (error) { notify(errorFeedback(`导入失败：${String(error)}`)); }
+  };
+  const importFromClipboard = async () => {
+    try {
+      const result = await invoke<{ imported: number; renamed: number }>("import_profiles_from_clipboard");
+      await load();
+      notify(successFeedback(`已导入 ${result.imported} 个方案${result.renamed > 0 ? `（${result.renamed} 个重名方案已自动改名）` : ""}。`));
+    } catch (error) { notify(errorFeedback(`导入失败：${String(error)}`)); }
+  };
 
   return <main className="app-shell">
     <header className="topbar">
       <div><span className="eyebrow">CLAUDE CODE · PROVIDER CONTROL</span><h1>CC Env Switcher</h1><p>安全切换供应商，每次写入前自动备份。</p></div>
-      <div className="header-actions"><button className="secondary" onClick={() => void checkUpdates()}>检查更新</button><button className="secondary" onClick={() => void invoke("open_backups_directory")}>查看备份</button><button className="primary" onClick={() => { const item = newProvider(); setProviders([...providers, item]); setSelected(item); }}>＋ 新增方案</button></div>
+      <div className="header-actions">
+        <button className="secondary" onClick={() => void checkUpdates()}>检查更新</button>
+        <button className="secondary" onClick={() => void invoke("open_backups_directory")}>查看备份</button>
+        <div className="button-group">
+          <button className="secondary" onClick={() => void importFromFile()}>从文件导入</button>
+          <button className="secondary" onClick={() => void importFromClipboard()}>从剪贴板导入</button>
+        </div>
+        <div className="button-group">
+          <button className="secondary" onClick={() => void exportToFile()}>导出到文件</button>
+          <button className="secondary" onClick={() => void exportToClipboard()}>导出到剪贴板</button>
+        </div>
+        <button className="primary" onClick={() => { const item = newProvider(); setProviders([...providers, item]); setSelected(item); }}>＋ 新增方案</button>
+      </div>
     </header>
     {availableUpdate && <section className="update-banner"><div><strong>发现新版本 {availableUpdate.version}</strong><p>{availableUpdate.notes || "已准备好安装最新版本。"}</p></div><div><button className="secondary" onClick={() => setAvailableUpdate(null)}>稍后</button><button className="primary" disabled={installing} onClick={() => void applyUpdate()}>{installing ? "正在安装…" : "立即安装"}</button></div></section>}
     <section className="workspace">
