@@ -50,7 +50,14 @@ fn app_state(app: &tauri::App) -> Result<AppState, Box<dyn std::error::Error>> {
 }
 
 #[tauri::command]
-fn list_providers(state: tauri::State<AppState>) -> Result<Vec<ProviderProfile>, String> { providers::load_profiles(&state.providers_path) }
+fn list_providers(state: tauri::State<AppState>) -> Result<Vec<ProviderProfile>, String> {
+    let profiles = providers::load_profiles(&state.providers_path)?;
+    if !profiles.is_empty() { return Ok(profiles); }
+    // 列表为空时预置一个官方方案；用户删除后不会被反复塞回，除非再次归零。
+    let seeded = vec![providers::native_profile()];
+    providers::save_profiles(&state.providers_path, &seeded)?;
+    Ok(seeded)
+}
 
 #[tauri::command]
 fn save_provider(state: tauri::State<AppState>, profile: ProviderProfile) -> Result<(), String> {
