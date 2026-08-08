@@ -1,8 +1,8 @@
-# Claude Env Switcher 自动更新与 Release 设计
+# CC Env Switcher 自动更新与 Release 设计
 
 ## 目标
 
-为 Claude Env Switcher 增加基于公开 GitHub Release 的安全自动更新，并通过 GitHub Actions 发布 macOS 安装包。
+为 CC Env Switcher 增加基于公开 GitHub Release 的安全自动更新，并通过 GitHub Actions 发布 macOS 安装包。
 
 ## 发布渠道
 

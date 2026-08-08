@@ -2,7 +2,7 @@
 
 ## Goal
 
-为 Claude Env Switcher 的供应商方案增加两项 Claude Code 环境变量，并让用户能够在保存或切换前，用当前编辑值验证 Anthropic 兼容服务的地址、凭据与主模型。
+为 CC Env Switcher 的供应商方案增加两项 Claude Code 环境变量，并让用户能够在保存或切换前，用当前编辑值验证 Anthropic 兼容服务的地址、凭据与主模型。
 
 ## Scope
 

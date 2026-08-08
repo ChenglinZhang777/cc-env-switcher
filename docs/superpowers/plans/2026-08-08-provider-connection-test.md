@@ -225,8 +225,8 @@ mod tests {
 
 ```rust
 #[tauri::command]
-async fn test_connection(input: claude_env_switcher_lib::connection_test::ConnectionTestInput) -> Result<claude_env_switcher_lib::connection_test::ConnectionTestResult, String> {
-    claude_env_switcher_lib::connection_test::test(input).await
+async fn test_connection(input: cc_env_switcher_lib::connection_test::ConnectionTestInput) -> Result<cc_env_switcher_lib::connection_test::ConnectionTestResult, String> {
+    cc_env_switcher_lib::connection_test::test(input).await
 }
 ```
 
@@ -322,8 +322,8 @@ Run:
 npm test
 npm run build
 cargo test --manifest-path src-tauri/Cargo.toml
-signing_password=$(security find-generic-password -a xiaogouzi -s "Claude Env Switcher updater signing password" -w)
-export TAURI_SIGNING_PRIVATE_KEY=/Users/xiaogouzi/.tauri/claude-env-switcher.key
+signing_password=$(security find-generic-password -a xiaogouzi -s "CC Env Switcher updater signing password" -w)
+export TAURI_SIGNING_PRIVATE_KEY=/Users/xiaogouzi/.tauri/cc-env-switcher.key
 export TAURI_SIGNING_PRIVATE_KEY_PASSWORD="$signing_password"
 export PATH=/Users/xiaogouzi/.rustup/toolchains/stable-aarch64-apple-darwin/lib/rustlib/aarch64-apple-darwin/bin:$PATH
 npm run tauri build -- --bundles app

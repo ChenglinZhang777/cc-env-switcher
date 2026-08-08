@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 将 Claude Env Switcher 发布为可从公开 GitHub Release 安全检查、下载和安装更新的 macOS 应用。
+**Goal:** 将 CC Env Switcher 发布为可从公开 GitHub Release 安全检查、下载和安装更新的 macOS 应用。
 
 **Architecture:** Tauri Updater 插件在 App 内检查 GitHub Release 的静态 `latest.json`，只接受使用嵌入公开键验证的更新包。GitHub Actions 仅在 `v*` 标签上读取 GitHub Secrets 中的私钥签名、创建公开 Release 并上传更新清单；普通 `main` 推送只执行测试和构建。
 
@@ -157,19 +157,19 @@ Expected: 提交成功。
 
 - [ ] **Step 1: 生成新的 Tauri 更新密钥对到用户私有目录，不写入项目。**
 
-Run: `npm run tauri signer generate -- -w ~/.tauri/claude-env-switcher.key`
+Run: `npm run tauri signer generate -- -w ~/.tauri/cc-env-switcher.key`
 
-Expected: 输出公开键；私钥仅存在 `~/.tauri/claude-env-switcher.key`。
+Expected: 输出公开键；私钥仅存在 `~/.tauri/cc-env-switcher.key`。
 
 - [ ] **Step 2: 验证私钥不被 Git 追踪。**
 
-Run: `git status --short && git ls-files | rg 'claude-env-switcher.key'`
+Run: `git status --short && git ls-files | rg 'cc-env-switcher.key'`
 
 Expected: 私钥不出现在状态或已追踪文件中。
 
 - [ ] **Step 3: 将公开键写入 Tauri 配置，并用 GitHub CLI 将私钥和密码分别设置为 `TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`。**
 
-Run: `gh secret set TAURI_SIGNING_PRIVATE_KEY --repo ChenglinZhang777/claude-env-switcher < ~/.tauri/claude-env-switcher.key`
+Run: `gh secret set TAURI_SIGNING_PRIVATE_KEY --repo ChenglinZhang777/cc-env-switcher < ~/.tauri/cc-env-switcher.key`
 
 Expected: GitHub 确认 Secret 已更新；命令输出不显示私钥。
 
@@ -220,6 +220,6 @@ Expected: PASS；构建目录含 `.app.tar.gz` 及其 `.sig`。
 
 - [ ] **Step 5: 推送 `v0.2.0` 标签并验证公开 Release。**
 
-Run: `git tag v0.2.0 && git push origin main v0.2.0 && gh release view v0.2.0 --repo ChenglinZhang777/claude-env-switcher`
+Run: `git tag v0.2.0 && git push origin main v0.2.0 && gh release view v0.2.0 --repo ChenglinZhang777/cc-env-switcher`
 
 Expected: Release 公开可访问，包含 DMG、更新归档、签名和 `latest.json`。

@@ -1,4 +1,4 @@
-# Claude Env Switcher 设计说明
+# CC Env Switcher 设计说明
 
 ## 目标
 
@@ -31,13 +31,13 @@
 
 应用方案数据保存在：
 
-`~/Library/Application Support/Claude Env Switcher/providers.json`
+`~/Library/Application Support/CC Env Switcher/providers.json`
 
 每个方案包含稳定标识、显示名称和完整环境变量键值对。按照用户要求，包含 API Key 在内的值以明文保存在此本地文件中。应用应在首次保存前明确告知该行为。
 
 备份目录为：
 
-`~/Library/Application Support/Claude Env Switcher/backups/`
+`~/Library/Application Support/CC Env Switcher/backups/`
 
 每次备份使用带毫秒级时间戳的唯一文件名，复制切换前完整的 `~/.claude/settings.json`。应用不限制数量、不自动删除，也不修改历史备份。
 

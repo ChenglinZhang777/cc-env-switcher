@@ -1,4 +1,4 @@
-# Claude Env Switcher Implementation Plan
+# CC Env Switcher Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
@@ -60,5 +60,5 @@
 - [ ] 记录数据路径、明文密钥警示、备份不自动清理和本地运行/打包方法。
 - [ ] 配置 GitHub Actions，在 macOS runner 产出已签名配置可选的 DMG 工件。
 - [ ] 运行 `npm test && npm run build && cargo test && npm run tauri build`；检查生成的 `.app` 和 DMG。
-- [ ] 创建私有 GitHub 仓库 `claude-env-switcher`，推送 `main`，验证远程分支和 Actions 工作流。
+- [ ] 创建私有 GitHub 仓库 `cc-env-switcher`，推送 `main`，验证远程分支和 Actions 工作流。
 
