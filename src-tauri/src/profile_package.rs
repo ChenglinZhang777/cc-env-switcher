@@ -70,7 +70,8 @@ pub fn merge(existing: &[ProviderProfile], incoming: Vec<PackagedProfile>) -> Me
     for item in incoming {
         // 比较对象含已处理过的导入项，因此批内后缀连续递增而不重复。
         let taken: Vec<&str> = profiles.iter().map(|profile| profile.name.as_str()).collect();
-        let name = if item.name.is_empty() || !taken.contains(&item.name.as_str()) {
+        // 空白名称（含仅有空格）界面上一律显示「未命名方案」，加后缀区分不了，故照原样导入。
+        let name = if item.name.trim().is_empty() || !taken.contains(&item.name.as_str()) {
             item.name
         } else {
             renamed += 1;
@@ -222,6 +223,15 @@ mod tests {
     fn merge_keeps_blank_names_as_is() {
         let outcome = merge(&[], vec![packaged("")]);
         assert_eq!(outcome.profiles[0].name, "", "空名称照原样导入");
+        assert_eq!(outcome.renamed, 0);
+    }
+
+    #[test]
+    fn merge_keeps_whitespace_only_names_as_is() {
+        // 仅含空格的名称在界面上同样显示为「未命名方案」，与空字符串一视同仁，不加后缀。
+        let existing = vec![ProviderProfile { id: "1".into(), name: "   ".into(), env: BTreeMap::new() }];
+        let outcome = merge(&existing, vec![packaged("   ")]);
+        assert_eq!(outcome.profiles[1].name, "   ", "仅含空格的名称照原样导入");
         assert_eq!(outcome.renamed, 0);
     }
 }
