@@ -26,3 +26,11 @@ npm run tauri build
 ```
 
 macOS 产物位于 `src-tauri/target/release/bundle/macos/` 和 `src-tauri/target/release/bundle/dmg/`。本地构建无需安装完整 Xcode；需要 Node.js、Rust 以及 macOS Command Line Tools。
+
+## 自动更新与发布
+
+应用会从公开 GitHub Release 检查签名更新，也可以在顶部点击“检查更新”。首次安装下载 DMG；后续版本由应用下载并验证更新包后重启安装。
+
+维护者发布新版本时：同步更新 `package.json`、`src-tauri/Cargo.toml` 与 `src-tauri/tauri.conf.json` 的版本号，推送 `v<版本号>` 标签。GitHub Actions 使用 `TAURI_SIGNING_PRIVATE_KEY` 与 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` Secrets 签名更新产物。
+
+签名私钥和密码不得提交或分享；它们必须保留在维护者的安全密码管理工具中。若丢失，已安装的应用无法信任后续更新。

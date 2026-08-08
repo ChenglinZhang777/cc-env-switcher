@@ -14,3 +14,17 @@ export function presentUpdateResult(result: UpdateResult): UpdatePresentation {
   }
   return { title: "暂时无法检查更新", detail: "不影响当前使用，可稍后重试。", canInstall: false };
 }
+
+export type AvailableUpdate = { update: Update; version: string; notes: string };
+
+export async function checkForUpdate(): Promise<AvailableUpdate | null> {
+  const update = await check();
+  return update ? { update, version: update.version, notes: update.body ?? "" } : null;
+}
+
+export async function installUpdate(update: Update, onProgress: (event: DownloadEvent) => void): Promise<void> {
+  await update.downloadAndInstall(onProgress);
+  await relaunch();
+}
+import { check, type DownloadEvent, type Update } from "@tauri-apps/plugin-updater";
+import { relaunch } from "@tauri-apps/plugin-process";
