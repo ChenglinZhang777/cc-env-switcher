@@ -20,6 +20,8 @@ jobs:
           node-version: 22
           cache: npm
       - uses: dtolnay/rust-toolchain@stable
+      - run: rustup component add llvm-tools-preview
+      - run: echo "$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n 's/^host: //p')/bin" >> "$GITHUB_PATH"
       - run: npm ci
       - uses: tauri-apps/tauri-action@v0
         env:
