@@ -10,6 +10,18 @@
 - 使用临时文件和原子替换写入，再读回校验 `env`。
 - 通过菜单栏打开应用，或在界面中快速切换。
 
+## 安装
+
+从 Release 下载 DMG，打开后把应用拖进「应用程序」文件夹。首次打开时 macOS 会提示「已损坏，无法打开」，在终端整段复制执行下面这条命令即可：
+
+```bash
+APP="/Applications/CC Env Switcher.app"; if [ -d "$APP" ]; then xattr -dr com.apple.quarantine "$APP" && codesign --force --deep --sign - "$APP" && echo "完成，现在可以打开了"; else echo "没找到 $APP，请先把应用拖进「应用程序」文件夹"; fi
+```
+
+看到「完成，现在可以打开了」就说明处理好了，双击应用即可。若提示没找到，说明应用还没拖进「应用程序」文件夹。重复执行没有副作用，升级到新版本后再跑一次即可。
+
+它做了两件事：移除下载隔离标记，然后在本机重新生成完整签名。原因是本项目没有使用 Apple 开发者证书签名和公证（需要付费的开发者账号）。请注意「系统设置 → 隐私与安全性」里不会出现放行入口，只有这条命令这一条路。
+
 ## 数据位置
 
 - 供应商方案：`~/Library/Application Support/com.chenglinzhang.cc-env-switcher/providers.json`
