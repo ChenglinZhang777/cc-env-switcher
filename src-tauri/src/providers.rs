@@ -63,7 +63,10 @@ mod tests {
     fn native_profile_leaves_provider_fields_empty() {
         let profile = native_profile();
         assert_eq!(profile.name, "官方 Claude");
-        for key in ["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL", "CLAUDE_CODE_SUBAGENT_MODEL"] {
+        for key in ["ANTHROPIC_BASE_URL", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_MODEL",
+                    "ANTHROPIC_DEFAULT_OPUS_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL",
+                    "ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_FABLE_MODEL",
+                    "CLAUDE_CODE_SUBAGENT_MODEL"] {
             assert_eq!(profile.env.get(key).map(String::as_str), Some(""), "{key} 应为空");
         }
         assert_eq!(profile.env.get("CLAUDE_CODE_EFFORT_LEVEL").map(String::as_str), Some("max"));
