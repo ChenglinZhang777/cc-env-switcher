@@ -1,0 +1,21 @@
+[package]
+name = "claude-env-switcher"
+version = "0.1.0"
+description = "Lightweight Claude Code provider switcher"
+edition = "2021"
+
+[lib]
+name = "claude_env_switcher_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2", features = [] }
+
+[dependencies]
+chrono = { version = "0.4", features = ["clock"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tauri = { version = "2", features = ["tray-icon"] }
+tauri-plugin-dialog = "2"
+tauri-plugin-opener = "2"
+thiserror = "2"
