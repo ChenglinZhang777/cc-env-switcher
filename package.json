@@ -1,5 +1,5 @@
 {
-  "name": "claude-env-switcher",
+  "name": "cc-env-switcher",
   "private": true,
   "version": "0.2.1",
   "type": "module",

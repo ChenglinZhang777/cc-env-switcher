@@ -28,7 +28,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: v__VERSION__
-          releaseName: Claude Env Switcher v__VERSION__
+          releaseName: CC Env Switcher v__VERSION__
           releaseBody: "自动发布的签名 macOS 安装包与应用内更新包。"
           releaseDraft: false
           prerelease: false

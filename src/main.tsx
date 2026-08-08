@@ -90,7 +90,7 @@ function App() {
 
   return <main className="app-shell">
     <header className="topbar">
-      <div><span className="eyebrow">CLAUDE CODE · PROVIDER CONTROL</span><h1>Claude Env Switcher</h1><p>安全切换供应商，每次写入前自动备份。</p></div>
+      <div><span className="eyebrow">CLAUDE CODE · PROVIDER CONTROL</span><h1>CC Env Switcher</h1><p>安全切换供应商，每次写入前自动备份。</p></div>
       <div className="header-actions"><button className="secondary" onClick={() => void checkUpdates()}>检查更新</button><button className="secondary" onClick={() => void invoke("open_backups_directory")}>查看备份</button><button className="primary" onClick={() => { const item = newProvider(); setProviders([...providers, item]); setSelected(item); }}>＋ 新增方案</button></div>
     </header>
     {availableUpdate && <section className="update-banner"><div><strong>发现新版本 {availableUpdate.version}</strong><p>{availableUpdate.notes || "已准备好安装最新版本。"}</p></div><div><button className="secondary" onClick={() => setAvailableUpdate(null)}>稍后</button><button className="primary" disabled={installing} onClick={() => void applyUpdate()}>{installing ? "正在安装…" : "立即安装"}</button></div></section>}

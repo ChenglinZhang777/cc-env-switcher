@@ -31,7 +31,7 @@ mod tests {
 
     #[test]
     fn profiles_round_trip_through_local_file() {
-        let path = std::env::temp_dir().join(format!("claude-env-profiles-{}.json", std::process::id()));
+        let path = std::env::temp_dir().join(format!("cc-env-profiles-{}.json", std::process::id()));
         let profile = ProviderProfile { id: "a".into(), name: "OpenRouter".into(), env: BTreeMap::from([("ANTHROPIC_AUTH_TOKEN".into(), "token".into())]) };
         save_profiles(&path, &[profile.clone()]).unwrap();
         assert_eq!(load_profiles(&path).unwrap(), vec![profile]);

@@ -53,7 +53,7 @@ mod tests {
     use std::path::PathBuf;
 
     fn test_root() -> PathBuf {
-        let root = std::env::temp_dir().join(format!("claude-env-switcher-test-{}", uuid()));
+        let root = std::env::temp_dir().join(format!("cc-env-switcher-test-{}", uuid()));
         fs::create_dir_all(&root).unwrap();
         root
     }
