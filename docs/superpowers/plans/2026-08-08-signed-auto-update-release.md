@@ -92,19 +92,7 @@ Run: `cd src-tauri && cargo check`
 
 Expected: FAIL，提示找不到 `tauri_plugin_updater`。
 
-- [ ] **Step 3: 添加固定版本的前端与 Rust 更新插件，注册插件，并写入公开更新配置。**
-
-```json
-{
-  "plugins": {
-    "updater": {
-      "pubkey": "<TAURI_UPDATE_PUBLIC_KEY>",
-      "endpoints": ["https://github.com/ChenglinZhang777/claude-env-switcher/releases/latest/download/latest.json"]
-    }
-  },
-  "bundle": { "createUpdaterArtifacts": true }
-}
-```
+- [ ] **Step 3: 添加固定版本的前端与 Rust 更新插件，注册插件，并在 Task 4 生成密钥后将其公开键与固定 GitHub 更新端点写入 Tauri 配置。**
 
 - [ ] **Step 4: 使用本地生成的公开键替换占位值，运行编译与 Rust 测试。**
 
@@ -235,4 +223,3 @@ Expected: PASS；构建目录含 `.app.tar.gz` 及其 `.sig`。
 Run: `git tag v0.2.0 && git push origin main v0.2.0 && gh release view v0.2.0 --repo ChenglinZhang777/claude-env-switcher`
 
 Expected: Release 公开可访问，包含 DMG、更新归档、签名和 `latest.json`。
-
