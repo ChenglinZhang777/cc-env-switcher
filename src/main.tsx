@@ -81,7 +81,7 @@ function App() {
     } finally { setTestingConnection(false); }
   };
   const switchTo = async (provider: Provider) => {
-    try { await invoke("switch_provider", { id: provider.id }); await load(); confirmAction("switched", `已切换到 ${provider.name};原 settings.json 已完整备份。`); }
+    try { await invoke("switch_provider", { id: provider.id }); await load(); confirmAction("switched", `已切换到 ${provider.name}；原 settings.json 已完整备份。`); }
     catch (error) { notify(errorFeedback(`切换失败：${String(error)}`)); }
   };
   const remove = async () => {
@@ -93,7 +93,7 @@ function App() {
     try {
       const env = await invoke<Record<string, string>>("import_current_env");
       setSelected({ id: crypto.randomUUID(), name: "从当前配置导入", env: { ...defaultProviderEnv, ...env } });
-      notify(successFeedback("已导入当前 env;请命名后保存。"));
+      notify(successFeedback("已导入当前 env；请命名后保存。"));
     } catch (error) { notify(errorFeedback(`导入失败：${String(error)}`)); }
   };
   const syncModels = () => {
@@ -105,7 +105,7 @@ function App() {
     if (!availableUpdate) return;
     setInstalling(true);
     try { await installUpdate(availableUpdate.update, () => setUpdateMessage("正在下载并验证更新…")); }
-    catch { setUpdateMessage("更新安装失败;当前版本仍可正常使用。"); setInstalling(false); }
+    catch { setUpdateMessage("更新安装失败；当前版本仍可正常使用。"); setInstalling(false); }
   };
 
   return <main className="app-shell">
@@ -129,7 +129,7 @@ function App() {
             <label className="field token-field"><span>API Key</span><div><input type={showToken ? "text" : "password"} value={selected.env.ANTHROPIC_AUTH_TOKEN} placeholder="sk-…" onChange={event => setEnv("ANTHROPIC_AUTH_TOKEN", event.target.value)} /><button onClick={() => setShowToken(!showToken)}>{showToken ? "隐藏" : "显示"}</button></div></label>
             <div className="connection-test-row"><button className="secondary" disabled={testingConnection} onClick={() => void testConnection()}>{testingConnection ? "正在测试…" : "测试连接"}</button>{connectionMessage && <span className="connection-result">{connectionMessage}</span>}</div>
           </section>
-          <section className="form-card"><div className="section-title"><div><h3>模型映射</h3><p>默认让所有 Claude 模型角色使用同一主模型;可以单独覆写。</p></div><button className="secondary" onClick={syncModels}>同步主模型</button></div><div className="model-grid">{modelKeys.map(key => <label className="field" key={key}><span>{labels[key]}</span><input value={selected.env[key]} placeholder="跟随主模型" onChange={event => setEnv(key, event.target.value)} /></label>)}</div></section>
+          <section className="form-card"><div className="section-title"><div><h3>模型映射</h3><p>默认让所有 Claude 模型角色使用同一主模型；可以单独覆写。</p></div><button className="secondary" onClick={syncModels}>同步主模型</button></div><div className="model-grid">{modelKeys.map(key => <label className="field" key={key}><span>{labels[key]}</span><input value={selected.env[key]} placeholder="跟随主模型" onChange={event => setEnv(key, event.target.value)} /></label>)}</div></section>
           <section className="form-card compact"><div className="section-title"><div><h3>Agent 行为</h3><p>针对 Claude Code 的运行设置。</p></div></div><div className="field-grid"><label className="field"><span>Subagent 模型</span><input value={selected.env.CLAUDE_CODE_SUBAGENT_MODEL} placeholder="跟随主模型" onChange={event => setEnv("CLAUDE_CODE_SUBAGENT_MODEL", event.target.value)} /></label><label className="field"><span>工作强度</span><select value={selected.env.CLAUDE_CODE_EFFORT_LEVEL} onChange={event => setEnv("CLAUDE_CODE_EFFORT_LEVEL", event.target.value)}><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="max">最高</option></select></label></div><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1"} onChange={event => setEnv("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", event.target.checked ? "1" : "0")} /><span><strong>启用实验性 Agent Teams</strong><small>写入 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</small></span></label><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1"} onChange={event => setEnv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", event.target.checked ? "1" : "0")} /><span><strong>关闭非必要网络流量</strong><small>写入 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</small></span></label><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_ATTRIBUTION_HEADER === "0"} onChange={event => setEnv("CLAUDE_CODE_ATTRIBUTION_HEADER", event.target.checked ? "0" : "1")} /><span><strong>关闭 Attribution Header</strong><small>写入 CLAUDE_CODE_ATTRIBUTION_HEADER=0</small></span></label></section>
           <footer className="editor-footer"><button className="danger" onClick={() => void remove()}>删除方案</button><div><button className="secondary" onClick={() => void importCurrent()}>从当前配置导入</button><button className="primary" disabled={busyAction === "saved"} onClick={() => void save()}>{busyAction === "saved" ? "✓ 已保存" : "保存方案"}</button></div></footer>
         </> : <div className="empty-editor"><h2>先选择一个供应商方案</h2><p>可以新建方案，或从当前 settings.json 导入现有 env。</p><button className="primary" onClick={() => void importCurrent()}>从当前配置导入</button></div>}
