@@ -32,7 +32,16 @@ pub fn switch_env(settings_path: &Path, backups_dir: &Path, env: &Value) -> Resu
     let backup_path = backups_dir.join(format!("settings-{stamp}.json"));
     fs::write(&backup_path, &original).map_err(SwitchError::Backup)?;
 
-    object.insert("env".into(), env.clone());
+    // 过滤空字符串值，只写入非空的环境变量
+    let filtered: serde_json::Map<String, Value> = env
+        .as_object()
+        .ok_or(SwitchError::InvalidJson)?
+        .iter()
+        .filter(|(_, value)| value.as_str() != Some(""))
+        .map(|(key, value)| (key.clone(), value.clone()))
+        .collect();
+    let filtered = Value::Object(filtered);
+    object.insert("env".into(), filtered.clone());
     let replacement = serde_json::to_vec_pretty(&document).map_err(|_| SwitchError::InvalidJson)?;
     let temporary = settings_path.with_extension(format!("json.switching-{stamp}"));
     fs::write(&temporary, replacement).map_err(SwitchError::Write)?;
@@ -40,7 +49,7 @@ pub fn switch_env(settings_path: &Path, backups_dir: &Path, env: &Value) -> Resu
 
     let verified: Value = serde_json::from_slice(&fs::read(settings_path).map_err(SwitchError::Write)?)
         .map_err(|_| SwitchError::VerificationFailed)?;
-    if verified.get("env") != Some(env) {
+    if verified.get("env") != Some(&filtered) {
         return Err(SwitchError::VerificationFailed);
     }
     Ok(())
@@ -69,6 +78,27 @@ mod tests {
         switch_env(&settings, &backups, &serde_json::json!({"ANTHROPIC_BASE_URL":"https://example.test"})).unwrap();
         let updated: serde_json::Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
         assert_eq!(updated["env"]["ANTHROPIC_BASE_URL"], "https://example.test");
+        assert_eq!(updated["permissions"]["allow"][0], "Bash");
+        assert_eq!(fs::read_dir(backups).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn switch_env_skips_empty_values_and_keeps_other_sections() {
+        let root = test_root();
+        let settings = root.join("settings.json");
+        let backups = root.join("backups");
+        fs::write(&settings, r#"{"env":{"OLD":"1"},"permissions":{"allow":["Bash"]}}"#).unwrap();
+        switch_env(&settings, &backups, &serde_json::json!({
+            "ANTHROPIC_BASE_URL": "",
+            "ANTHROPIC_AUTH_TOKEN": "",
+            "CLAUDE_CODE_EFFORT_LEVEL": "max"
+        })).unwrap();
+        let updated: serde_json::Value = serde_json::from_slice(&fs::read(&settings).unwrap()).unwrap();
+        let env = updated["env"].as_object().unwrap();
+        assert!(!env.contains_key("ANTHROPIC_BASE_URL"), "空值键不应写入");
+        assert!(!env.contains_key("ANTHROPIC_AUTH_TOKEN"), "空值键不应写入");
+        assert_eq!(env["CLAUDE_CODE_EFFORT_LEVEL"], "max");
+        assert_eq!(env.len(), 1);
         assert_eq!(updated["permissions"]["allow"][0], "Bash");
         assert_eq!(fs::read_dir(backups).unwrap().count(), 1);
     }
