@@ -1,9 +1,19 @@
-name: Build macOS app
+name: Build and Release macOS app
 
 on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      version_bump:
+        description: '版本更新类型'
+        required: false
+        default: 'patch'
+        type: choice
+        options:
+          - patch
+          - minor
+          - major
 
 jobs:
   build:
@@ -14,46 +24,95 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # 获取所有历史和标签
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
-      - uses: dtolnay/rust-toolchain@stable
-      - run: rustup component add llvm-tools-preview
-      - run: 'echo "$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n "s/^host: //p")/bin" >> "$GITHUB_PATH"'
-      - run: npm ci
-      - run: npm run tauri build
 
-      # 检查版本号是否为新版本
-      - name: Check if new version
+      - uses: dtolnay/rust-toolchain@stable
+
+      - run: rustup component add llvm-tools-preview
+
+      - run: 'echo "$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n "s/^host: //p")/bin" >> "$GITHUB_PATH"'
+
+      - run: npm ci
+
+      # 检查是否需要版本更新
+      - name: Check version update needed
         id: version_check
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "current_version=v$VERSION" >> $GITHUB_OUTPUT
-          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
-            echo "is_new=false" >> $GITHUB_OUTPUT
-            echo "版本 v$VERSION 已存在，跳过发布"
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=$CURRENT_VERSION" >> $GITHUB_OUTPUT
+          
+          # 检查最后一次提交是否是版本更新提交
+          LAST_COMMIT_MSG=$(git log -1 --pretty=%B)
+          if [[ "$LAST_COMMIT_MSG" == "chore: auto bump version to"* ]]; then
+            echo "needs_bump=false" >> $GITHUB_OUTPUT
+            echo "跳过自动版本更新（上次提交已是版本更新）"
           else
-            echo "is_new=true" >> $GITHUB_OUTPUT
-            echo "检测到新版本 v$VERSION，准备发布"
+            echo "needs_bump=true" >> $GITHUB_OUTPUT
+            echo "需要自动更新版本"
           fi
 
-      # 如果是新版本，创建 Release
+      # 自动更新版本号
+      - name: Bump version
+        if: steps.version_check.outputs.needs_bump == 'true'
+        id: bump
+        run: |
+          # 获取版本更新类型（workflow_dispatch 可指定，默认 patch）
+          BUMP_TYPE="${{ github.event.inputs.version_bump || 'patch' }}"
+          
+          # 更新 package.json
+          npm version $BUMP_TYPE --no-git-tag-version
+          NEW_VERSION=$(node -p "require('./package.json').version")
+          echo "new_version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          
+          # 更新 Cargo.toml
+          sed -i '' "s/^version = \".*\"/version = \"$NEW_VERSION\"/" src-tauri/Cargo.toml
+          
+          # 更新 tauri.conf.json
+          node -e "
+            const fs = require('fs');
+            const config = JSON.parse(fs.readFileSync('src-tauri/tauri.conf.json', 'utf8'));
+            config.version = '$NEW_VERSION';
+            fs.writeFileSync('src-tauri/tauri.conf.json', JSON.stringify(config, null, 2) + '\n');
+          "
+          
+          echo "✅ 版本已更新到 v$NEW_VERSION"
+
+      # 提交版本更新
+      - name: Commit version bump
+        if: steps.version_check.outputs.needs_bump == 'true'
+        run: |
+          NEW_VERSION="${{ steps.bump.outputs.new_version }}"
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add package.json package-lock.json src-tauri/Cargo.toml src-tauri/tauri.conf.json
+          git commit -m "chore: auto bump version to v$NEW_VERSION"
+          git push
+
+      # 构建应用
+      - name: Build app
+        run: npm run tauri build
+
+      # 创建 Release
       - name: Create Release
-        if: steps.version_check.outputs.is_new == 'true'
+        if: steps.version_check.outputs.needs_bump == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ steps.version_check.outputs.current_version }}
-          releaseName: "CC Env Switcher ${{ steps.version_check.outputs.current_version }}"
+          tagName: v${{ steps.bump.outputs.new_version }}
+          releaseName: "CC Env Switcher v${{ steps.bump.outputs.new_version }}"
           releaseBody: "自动发布的签名 macOS 安装包与应用内更新包。"
           releaseDraft: false
           prerelease: false
           includeUpdaterJson: true
 
-      # 上传 Artifacts（用于非发布构建的测试）
+      # 上传 Artifacts（用于非发布构建）
       - uses: actions/upload-artifact@v4
-        if: steps.version_check.outputs.is_new == 'false'
+        if: steps.version_check.outputs.needs_bump == 'false'
         with:
           name: CC-Env-Switcher-macOS
           path: |
