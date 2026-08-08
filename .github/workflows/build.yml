@@ -13,6 +13,8 @@ jobs:
       TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # 获取所有历史和标签
       - uses: actions/setup-node@v4
         with: { node-version: 22, cache: npm }
       - uses: dtolnay/rust-toolchain@stable
@@ -20,7 +22,38 @@ jobs:
       - run: 'echo "$(rustc --print sysroot)/lib/rustlib/$(rustc -vV | sed -n "s/^host: //p")/bin" >> "$GITHUB_PATH"'
       - run: npm ci
       - run: npm run tauri build
+
+      # 检查版本号是否为新版本
+      - name: Check if new version
+        id: version_check
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "current_version=v$VERSION" >> $GITHUB_OUTPUT
+          if git rev-parse "v$VERSION" >/dev/null 2>&1; then
+            echo "is_new=false" >> $GITHUB_OUTPUT
+            echo "版本 v$VERSION 已存在，跳过发布"
+          else
+            echo "is_new=true" >> $GITHUB_OUTPUT
+            echo "检测到新版本 v$VERSION，准备发布"
+          fi
+
+      # 如果是新版本，创建 Release
+      - name: Create Release
+        if: steps.version_check.outputs.is_new == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tagName: ${{ steps.version_check.outputs.current_version }}
+          releaseName: "CC Env Switcher ${{ steps.version_check.outputs.current_version }}"
+          releaseBody: "自动发布的签名 macOS 安装包与应用内更新包。"
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true
+
+      # 上传 Artifacts（用于非发布构建的测试）
       - uses: actions/upload-artifact@v4
+        if: steps.version_check.outputs.is_new == 'false'
         with:
           name: CC-Env-Switcher-macOS
           path: |
