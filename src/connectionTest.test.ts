@@ -10,4 +10,8 @@ describe("connection test presentation", () => {
   it("does not expose server details", () => {
     expect(presentConnectionResult("authentication")).toBe("连接失败：请检查 API Key。");
   });
+
+  it("presents the success state", () => {
+    expect(presentConnectionResult("success")).toBe("连接成功，可使用此模型。");
+  });
 });
