@@ -1,15 +1,41 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "CC Env Switcher",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "identifier": "com.chenglinzhang.cc-env-switcher",
-  "build": { "frontendDist": "../dist", "devUrl": "http://localhost:1420", "beforeDevCommand": "npm run dev", "beforeBuildCommand": "npm run build" },
-  "app": { "windows": [{ "title": "CC Env Switcher", "width": 820, "height": 620, "resizable": true }], "security": { "csp": null } },
-  "bundle": { "active": true, "targets": ["app", "dmg"], "createUpdaterArtifacts": true },
+  "build": {
+    "frontendDist": "../dist",
+    "devUrl": "http://localhost:1420",
+    "beforeDevCommand": "npm run dev",
+    "beforeBuildCommand": "npm run build"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "CC Env Switcher",
+        "width": 820,
+        "height": 620,
+        "resizable": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": [
+      "app",
+      "dmg"
+    ],
+    "createUpdaterArtifacts": true
+  },
   "plugins": {
     "updater": {
       "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEQ0MjYyQ0E0QzZCNjEwOTUKUldTVkVMYkdwQ3dtMUJSNU1teVNYbSsxYm5RUGg3VWYwMGlFMDBOczZkbWlxWXNVM3BremJ3SXUK",
-      "endpoints": ["https://github.com/ChenglinZhang777/cc-env-switcher/releases/latest/download/latest.json"]
+      "endpoints": [
+        "https://github.com/ChenglinZhang777/cc-env-switcher/releases/latest/download/latest.json"
+      ]
     }
   }
 }
