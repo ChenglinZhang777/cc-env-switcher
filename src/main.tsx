@@ -6,6 +6,7 @@ import { missingConnectionFields, presentConnectionResult, type ConnectionResult
 import { checkForUpdate, installUpdate, presentUpdateResult, type AvailableUpdate } from "./update";
 import { detectActiveState, presentActiveBadge, type ActiveState } from "./activeProvider";
 import { errorFeedback, FEEDBACK_DISMISS_MS, successFeedback, type Feedback } from "./feedback";
+import { needsSync, presentSyncFailure, presentSyncState, syncStateOf } from "./multicaSync";
 import "./styles.css";
 
 type Provider = { id: string; name: string; env: Record<string, string> };
@@ -23,6 +24,9 @@ function App() {
   const [showToken, setShowToken] = useState(false);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionMessage, setConnectionMessage] = useState("");
+  const [registeredCommands, setRegisteredCommands] = useState<string[]>([]);
+  const [syncingId, setSyncingId] = useState("");
+  const [syncMessage, setSyncMessage] = useState("");
   const [availableUpdate, setAvailableUpdate] = useState<AvailableUpdate | null>(null);
   const [updateMessage, setUpdateMessage] = useState("");
   const [installing, setInstalling] = useState(false);
@@ -41,11 +45,27 @@ function App() {
     setActiveState(detectActiveState(activeEnv, profiles));
   };
 
+  /// multica 没装时静默留空，接线区自己会说明原因，不影响切换供应商这条主线。
+  const refreshRegistered = async () => {
+    setRegisteredCommands(await invoke<string[]>("multica_registered_commands").catch(() => []));
+  };
   const load = async () => {
     const profiles = await invoke<Provider[]>("list_providers");
     setProviders(profiles);
     setSelected(current => current ? profiles.find(item => item.id === current.id) ?? current : profiles[0] ?? null);
     await refreshActiveState(profiles);
+    await refreshRegistered();
+  };
+  const syncToMultica = async (provider: Provider) => {
+    setSyncingId(provider.id); setSyncMessage("");
+    try {
+      const outcome = await invoke<{ detail: string }>("multica_sync_provider", { id: provider.id });
+      await refreshRegistered();
+      setSyncMessage(outcome.detail);
+      notify(successFeedback(`${provider.name} 已接线到 multica。`));
+    } catch (error) {
+      setSyncMessage(presentSyncFailure(String(error)));
+    } finally { setSyncingId(""); }
   };
   const checkUpdates = async () => {
     try {
@@ -158,7 +178,7 @@ function App() {
       <aside className="sidebar">
         <div className="sidebar-title"><h2>供应商方案</h2><span>{providers.length}</span></div>
         {activeState.kind === "unknown" && <div className="active-unknown">当前生效的配置不属于任何已存方案。</div>}
-        {providers.length ? providers.map(item => { const badge = presentActiveBadge(activeState, item.id); return <button className={`profile-card ${selected?.id === item.id ? "active" : ""}`} key={item.id} onClick={() => setSelected(item)}><span className="profile-name">{item.name}{badge && <em className={`badge ${badge === "已生效" ? "badge-active" : "badge-stale"}`}>{badge}</em>}</span><span>{host(item.env.ANTHROPIC_BASE_URL)}</span><span className="profile-model">{item.env.ANTHROPIC_MODEL || "未设置模型"}</span></button>; }) : <div className="empty-list">还没有方案<br />从当前 Claude 配置导入，或创建新的方案。</div>}
+        {providers.length ? providers.map(item => { const badge = presentActiveBadge(activeState, item.id); return <button className={`profile-card ${selected?.id === item.id ? "active" : ""}`} key={item.id} onClick={() => setSelected(item)}><span className="profile-name">{item.name}{badge && <em className={`badge ${badge === "已生效" ? "badge-active" : "badge-stale"}`}>{badge}</em>}</span><span>{host(item.env.ANTHROPIC_BASE_URL)}</span><span className="profile-model">{item.env.ANTHROPIC_MODEL || "未设置模型"}{needsSync(item.env) && syncStateOf(item.name, registeredCommands, false) === "synced" && <em className="badge badge-synced">已接线</em>}</span></button>; }) :<div className="empty-list">还没有方案<br />从当前 Claude 配置导入，或创建新的方案。</div>}
       </aside>
       <article className="editor">
         {selected ? <>
@@ -171,6 +191,12 @@ function App() {
           </section>
           <section className="form-card"><div className="section-title"><div><h3>模型映射</h3><p>默认让所有 Claude 模型角色使用同一主模型；可以单独覆写。</p></div><button className="secondary" onClick={syncModels}>同步主模型</button></div><div className="model-grid">{modelKeys.map(key => <label className="field" key={key}><span>{labels[key]}</span><input value={selected.env[key]} placeholder="跟随主模型" onChange={event => setEnv(key, event.target.value)} /></label>)}</div></section>
           <section className="form-card compact"><div className="section-title"><div><h3>Agent 行为</h3><p>针对 Claude Code 的运行设置。</p></div></div><div className="field-grid"><label className="field"><span>Subagent 模型</span><input value={selected.env.CLAUDE_CODE_SUBAGENT_MODEL} placeholder="跟随主模型" onChange={event => setEnv("CLAUDE_CODE_SUBAGENT_MODEL", event.target.value)} /></label><label className="field"><span>工作强度</span><select value={selected.env.CLAUDE_CODE_EFFORT_LEVEL} onChange={event => setEnv("CLAUDE_CODE_EFFORT_LEVEL", event.target.value)}><option value="low">低</option><option value="medium">中</option><option value="high">高</option><option value="max">最高</option></select></label></div><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS === "1"} onChange={event => setEnv("CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS", event.target.checked ? "1" : "0")} /><span><strong>启用实验性 Agent Teams</strong><small>写入 CLAUDE_CODE_EXPERIMENTAL_AGENT_TEAMS=1</small></span></label><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC === "1"} onChange={event => setEnv("CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC", event.target.checked ? "1" : "0")} /><span><strong>关闭非必要网络流量</strong><small>写入 CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1</small></span></label><label className="toggle"><input type="checkbox" checked={selected.env.CLAUDE_CODE_ATTRIBUTION_HEADER === "0"} onChange={event => setEnv("CLAUDE_CODE_ATTRIBUTION_HEADER", event.target.checked ? "0" : "1")} /><span><strong>关闭 Attribution Header</strong><small>写入 CLAUDE_CODE_ATTRIBUTION_HEADER=0</small></span></label></section>
+          <section className="form-card compact"><div className="section-title"><div><h3>接入 multica</h3><p>把这个方案注册成 multica 的运行时，就能把任务派给它。接线会先真跑一轮对话体检，跑不通不会注册。</p></div></div>
+            {needsSync(selected.env)
+              ? <div className="connection-test-row"><button className="secondary" disabled={Boolean(syncingId)} onClick={() => void syncToMultica(selected)}>{syncingId === selected.id ? "正在体检并接线…" : "同步到 multica"}</button><span className="connection-result">当前：{presentSyncState(syncStateOf(selected.name, registeredCommands, syncingId === selected.id))}</span></div>
+              : <p className="sync-hint">官方方案不需要接线，multica 自带 Claude 运行时。</p>}
+            {syncMessage && <span className="connection-result">{syncMessage}</span>}
+          </section>
           <footer className="editor-footer"><button className="danger" onClick={() => void remove()}>删除方案</button><div><button className="secondary" onClick={() => void importCurrent()}>从当前配置导入</button><button className="primary" disabled={busyAction === "saved"} onClick={() => void save()}>{busyAction === "saved" ? "✓ 已保存" : "保存方案"}</button></div></footer>
         </> : <div className="empty-editor"><h2>先选择一个供应商方案</h2><p>可以新建方案，或从当前 settings.json 导入现有 env。</p><button className="primary" onClick={() => void importCurrent()}>从当前配置导入</button></div>}
       </article>

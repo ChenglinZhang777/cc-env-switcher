@@ -103,6 +103,43 @@ async fn test_connection(input: cc_env_switcher_lib::connection_test::Connection
 #[tauri::command]
 fn backups_path(state: tauri::State<AppState>) -> String { state.backups_path.display().to_string() }
 
+use cc_env_switcher_lib::multica_sync;
+
+fn home_dir() -> Result<PathBuf, String> {
+    std::env::var_os("HOME").map(PathBuf::from).ok_or_else(|| "未找到用户目录".to_string())
+}
+
+/// 找 multica CLI。PATH 在 GUI 应用里通常不含 Homebrew，所以先看常见安装位置。
+fn multica_cli() -> Result<PathBuf, String> {
+    let candidates = ["/opt/homebrew/bin/multica", "/usr/local/bin/multica"];
+    candidates.iter().map(PathBuf::from).find(|path| path.exists())
+        .ok_or_else(|| "找不到 multica 命令；请先安装 multica CLI。".to_string())
+}
+
+/// 已在 multica 注册的命令名。取默认 workspace 一次即可，界面只用来标出哪些方案还没接线。
+#[tauri::command]
+async fn multica_registered_commands() -> Result<Vec<String>, String> {
+    let cli = multica_cli()?;
+    let output = std::process::Command::new(cli)
+        .args(["runtime", "profile", "list", "--output", "json"])
+        .stdin(std::process::Stdio::null())
+        .output()
+        .map_err(|error| format!("无法执行 multica 命令：{error}"))?;
+    Ok(multica_sync::registered_commands(&String::from_utf8_lossy(&output.stdout)))
+}
+
+/// 同步单个方案。耗时主要在体检那一轮真实对话，可能要几十秒。
+#[tauri::command]
+async fn multica_sync_provider(state: tauri::State<'_, AppState>, id: String) -> Result<multica_sync::SyncOutcome, String> {
+    let profile = providers::load_profiles(&state.providers_path)?.into_iter()
+        .find(|profile| profile.id == id)
+        .ok_or("未找到该供应商")?;
+    let (home, cli) = (home_dir()?, multica_cli()?);
+    tauri::async_runtime::spawn_blocking(move || multica_sync::sync(&home, &cli, &profile.name))
+        .await
+        .map_err(|error| format!("同步任务中断：{error}"))?
+}
+
 #[tauri::command]
 fn open_backups_directory(app: tauri::AppHandle, state: tauri::State<AppState>) -> Result<(), String> {
     fs::create_dir_all(&state.backups_path).map_err(|error| error.to_string())?;
@@ -198,7 +235,7 @@ fn main() {
         .plugin(tauri_plugin_clipboard_manager::init())
         .plugin(tauri_plugin_process::init())
         .plugin(tauri_plugin_updater::Builder::new().build())
-        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, read_active_env, switch_provider, test_connection, backups_path, open_backups_directory, export_profiles_to_file, export_profiles_to_clipboard, import_profiles_from_file, import_profiles_from_clipboard])
+        .invoke_handler(tauri::generate_handler![list_providers, save_provider, delete_provider, import_current_env, read_active_env, switch_provider, test_connection, backups_path, open_backups_directory, export_profiles_to_file, export_profiles_to_clipboard, import_profiles_from_file, import_profiles_from_clipboard, multica_registered_commands, multica_sync_provider])
         .run(tauri::generate_context!())
         .expect("启动 CC Env Switcher 失败");
 }
